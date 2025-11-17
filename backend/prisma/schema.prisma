@@ -1,0 +1,249 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// TENANT (Fitness Center)
+// ==========================================
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique // URL-friendly identifier
+  email     String
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users            User[]
+  membershipPlans  MembershipPlan[]
+  subscriptions    Subscription[]
+  checkins         Checkin[]
+  workoutPlans     WorkoutPlan[]
+
+  @@map("tenants")
+}
+
+// ==========================================
+// USER (Admin or Member)
+// ==========================================
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // hashed with bcrypt
+  firstName String
+  lastName  String
+  role      UserRole @default(MEMBER)
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberProfile  MemberProfile?
+  subscriptions  Subscription[]
+  accessBadge    AccessBadge?
+  checkins       Checkin[]
+  workoutPlans   WorkoutPlan[]
+
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+// ==========================================
+// MEMBER PROFILE (Onboarding data)
+// ==========================================
+enum FitnessLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum FitnessGoal {
+  WEIGHT_LOSS
+  MUSCLE_GAIN
+  GENERAL_FITNESS
+  STRENGTH
+  ENDURANCE
+}
+
+model MemberProfile {
+  id              String        @id @default(uuid())
+  userId          String        @unique
+  height          Float?        // in cm
+  weight          Float?        // in kg
+  age             Int?
+  fitnessLevel    FitnessLevel?
+  fitnessGoal     FitnessGoal?
+  workoutsPerWeek Int?          @default(3)
+  medicalNotes    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("member_profiles")
+}
+
+// ==========================================
+// MEMBERSHIP PLAN
+// ==========================================
+enum PlanInterval {
+  MONTHLY
+  YEARLY
+}
+
+model MembershipPlan {
+  id          String       @id @default(uuid())
+  tenantId    String
+  name        String       // e.g., "Basic", "Premium"
+  description String?
+  price       Float        // in cents (e.g., 2999 = $29.99)
+  interval    PlanInterval @default(MONTHLY)
+  features    String[]     // JSON array of features
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+
+  @@index([tenantId])
+  @@map("membership_plans")
+}
+
+// ==========================================
+// SUBSCRIPTION (User + Plan)
+// ==========================================
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  INCOMPLETE
+  TRIALING
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String
+  tenantId             String
+  planId               String
+  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?
+  status               SubscriptionStatus @default(INCOMPLETE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  // Relations
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([stripeSubscriptionId])
+  @@map("subscriptions")
+}
+
+// ==========================================
+// ACCESS BADGE (Virtual QR code)
+// ==========================================
+model AccessBadge {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  token     String   @unique // Used for QR code scanning
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkins Checkin[]
+
+  @@index([token])
+  @@map("access_badges")
+}
+
+// ==========================================
+// CHECKIN (Access log)
+// ==========================================
+model Checkin {
+  id        String   @id @default(uuid())
+  userId    String
+  tenantId  String
+  badgeId   String
+  checkedAt DateTime @default(now())
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  badge  AccessBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([checkedAt])
+  @@map("checkins")
+}
+
+// ==========================================
+// WORKOUT PLAN (Generated program)
+// ==========================================
+model WorkoutPlan {
+  id          String   @id @default(uuid())
+  userId      String
+  tenantId    String
+  name        String   // e.g., "3-Day Beginner Split"
+  description String?
+  weeks       Int      @default(4) // Duration in weeks
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions WorkoutSession[]
+
+  @@index([userId])
+  @@index([tenantId])
+  @@map("workout_plans")
+}
+
+// ==========================================
+// WORKOUT SESSION (Day in the plan)
+// ==========================================
+model WorkoutSession {
+  id          String   @id @default(uuid())
+  planId      String
+  dayNumber   Int      // e.g., 1, 2, 3 (for Day 1, Day 2...)
+  name        String   // e.g., "Push Day", "Leg Day"
+  exercises   Json     // Array of {name, sets, reps, rest}
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  plan WorkoutPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@map("workout_sessions")
+}
