@@ -66,7 +66,6 @@ export class WorkoutsService {
     exercises: session.exercises,
   })),
 },
-
       include: {
         sessions: {
           orderBy: {
@@ -74,8 +73,9 @@ export class WorkoutsService {
           },
         },
       },
-    });
-
+    },
+        });
+      
     return plan;
   }
 
