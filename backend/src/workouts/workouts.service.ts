@@ -74,7 +74,8 @@ export class WorkoutsService {
           },
         },
       },
-    });
+         },
+       });
 
     return plan;
   }
@@ -92,7 +93,8 @@ export class WorkoutsService {
           },
         },
       },
-    };
+         },
+       });
 
     if (!plan) {
       throw new NotFoundException('No workout plan found. Generate one first.');
