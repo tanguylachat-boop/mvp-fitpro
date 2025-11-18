@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/services/prisma.service';
 import { WorkoutGeneratorService } from './workout-generator.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class WorkoutsService {
@@ -62,7 +63,7 @@ export class WorkoutsService {
             name: session.name,
             description: session.description,
             exercises: session.exercises,
-          }))as Prisma.WorkoutSessionCreateWithoutPlanInput[],
+          })) as Prisma.WorkoutSessionCreateWithoutPlanInput[],
         },
       },
       include: {
