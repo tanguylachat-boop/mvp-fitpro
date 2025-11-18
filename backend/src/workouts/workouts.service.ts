@@ -57,11 +57,8 @@ export class WorkoutsService {
         name: generatedPlan.name,
         description: generatedPlan.description,
         weeks: generatedPlan.weeks,
-       sessions: {
-  // TS ignore car Prisma local ≠ Prisma build
-  // On corrigera plus tard si on optimise les types
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+      sessions: {
+  // @ts-ignore - Prisma types mismatch in build environment
   create: generatedPlan.sessions.map((session) => ({
     dayNumber: session.dayNumber,
     name: session.name,
