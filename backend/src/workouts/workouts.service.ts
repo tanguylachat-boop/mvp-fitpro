@@ -62,7 +62,7 @@ export class WorkoutsService {
             name: session.name,
             description: session.description,
             exercises: session.exercises,
-          })),
+          }))as Prisma.WorkoutSessionCreateWithoutPlanInput[],
         },
       },
       include: {
